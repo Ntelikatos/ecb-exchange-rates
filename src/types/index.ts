@@ -1,38 +1,51 @@
 /**
+ * All ISO 4217 currency codes supported by the ECB, as a runtime array.
+ * Use this to programmatically list or iterate over all available currencies.
+ *
+ * @example
+ * ```ts
+ * import { ALL_CURRENCY_CODES } from "ecb-exchange-rates-ts";
+ * console.log(ALL_CURRENCY_CODES); // ["AUD", "BGN", ..., "ZAR"]
+ * ```
+ */
+export const ALL_CURRENCY_CODES = [
+  "AUD",
+  "BGN",
+  "BRL",
+  "CAD",
+  "CHF",
+  "CNY",
+  "CZK",
+  "DKK",
+  "EUR",
+  "GBP",
+  "HKD",
+  "HUF",
+  "IDR",
+  "ILS",
+  "INR",
+  "ISK",
+  "JPY",
+  "KRW",
+  "MXN",
+  "MYR",
+  "NOK",
+  "NZD",
+  "PHP",
+  "PLN",
+  "RON",
+  "SEK",
+  "SGD",
+  "THB",
+  "TRY",
+  "USD",
+  "ZAR",
+] as const;
+
+/**
  * ISO 4217 currency codes supported by the ECB.
  */
-export type CurrencyCode =
-  | "AUD"
-  | "BGN"
-  | "BRL"
-  | "CAD"
-  | "CHF"
-  | "CNY"
-  | "CZK"
-  | "DKK"
-  | "EUR"
-  | "GBP"
-  | "HKD"
-  | "HUF"
-  | "IDR"
-  | "ILS"
-  | "INR"
-  | "ISK"
-  | "JPY"
-  | "KRW"
-  | "MXN"
-  | "MYR"
-  | "NOK"
-  | "NZD"
-  | "PHP"
-  | "PLN"
-  | "RON"
-  | "SEK"
-  | "SGD"
-  | "THB"
-  | "TRY"
-  | "USD"
-  | "ZAR";
+export type CurrencyCode = (typeof ALL_CURRENCY_CODES)[number];
 
 /** Data frequency for the exchange rate series. */
 export type Frequency = "D" | "M" | "A";

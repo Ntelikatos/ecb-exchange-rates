@@ -4,6 +4,9 @@
 // Main client
 export { EcbClient } from "./client.js";
 
+// Constants
+export { ALL_CURRENCY_CODES } from "./types/index.js";
+
 // Types
 export type {
   ConversionResult,
