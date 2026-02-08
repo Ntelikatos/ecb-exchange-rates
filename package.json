@@ -50,10 +50,14 @@
     "euro"
   ],
   "license": "MIT",
-  "author": "",
+  "author": "Ntelikatos",
+  "homepage": "https://github.com/Ntelikatos/ecb-exchange-rates#readme",
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "git+https://github.com/Ntelikatos/ecb-exchange-rates.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Ntelikatos/ecb-exchange-rates/issues"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0",
