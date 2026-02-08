@@ -15,7 +15,7 @@ The ECB publishes free exchange rate data for 29 currencies daily, but their SDM
 
 ## The solution
 
-This package handles all the SDMX complexity behind a clean, typed interface. You get rates, history, and conversions with a single method call. It ships as a **~5 KB** minified bundle with **zero runtime dependencies** - just native `fetch`.
+This package handles all the SDMX complexity behind a clean, typed interface. You get rates, history, and conversions with a single method call. It ships as a **~2 KB** minified bundle with **zero runtime dependencies** - just native `fetch`.
 
 ```ts
 import { EcbClient } from "ecb-exchange-rates-ts";
@@ -116,7 +116,7 @@ try {
 | | ecb-exchange-rates-ts | ecb-euro-exchange-rates | ecb-exchange-rates |
 |---|---|---|---|
 | Dependencies | **0** | 2 | 3 |
-| Bundle size | **~5 KB** | ~50 KB | ~120 KB |
+| Bundle size | **~2 KB** | ~50 KB | ~120 KB |
 | TypeScript | Native | Partial | No |
 | Last updated | 2026 | 2024 | 2015 |
 | Configurable base currency | Yes | No | No |

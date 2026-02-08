@@ -175,6 +175,11 @@ export class EcbClient {
   private async fetchAndParse(query: ExchangeRateQuery): Promise<ExchangeRateObservation[]> {
     const url = buildExchangeRateUrl(query, this.baseUrl);
     const raw = await this.fetcher.get(url);
+
+    if (!raw || raw.trim().length === 0) {
+      throw new EcbNoDataError(query.currencies, query.startDate, query.endDate);
+    }
+
     const json = parseSdmxJson(raw);
     const observations = parseJsonResponse(json);
 

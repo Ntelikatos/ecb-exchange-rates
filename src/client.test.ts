@@ -291,6 +291,18 @@ describe("EcbClient", () => {
       expect(result).toBeNull();
     });
 
+    it("throws EcbNoDataError when API returns empty body (real ECB behavior)", async () => {
+      const client = EcbClient.withFetcher(new MockFetcher(""));
+
+      await expect(client.getRate("USD", "2026-02-07")).rejects.toThrow(EcbNoDataError);
+    });
+
+    it("throws EcbNoDataError when API returns whitespace-only body", async () => {
+      const client = EcbClient.withFetcher(new MockFetcher("  "));
+
+      await expect(client.getRate("USD", "2026-02-07")).rejects.toThrow(EcbNoDataError);
+    });
+
     it("is an instance of EcbError for catch-all handling", async () => {
       const client = EcbClient.withFetcher(new MockFetcher(EMPTY_RESPONSE));
 

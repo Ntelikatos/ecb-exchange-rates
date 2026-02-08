@@ -163,8 +163,11 @@ export const EMPTY_RESPONSE: SdmxJsonResponse = {
  * Mock HTTP fetcher for testing the client without network calls.
  */
 export class MockFetcher implements HttpFetcher {
-  constructor(private readonly response: SdmxJsonResponse) {}
+  constructor(private readonly response: SdmxJsonResponse | string) {}
   async get(_url: string): Promise<string> {
+    if (typeof this.response === "string") {
+      return this.response;
+    }
     return JSON.stringify(this.response);
   }
 }
