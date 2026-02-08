@@ -1,6 +1,6 @@
 {
   "name": "ecb-exchange-rates-ts",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Fetch ECB exchange rates in two lines of code. Typed TypeScript client for the European Central Bank SDMX API. Zero dependencies, ~5 KB.",
   "type": "module",
   "main": "./dist/index.cjs",
