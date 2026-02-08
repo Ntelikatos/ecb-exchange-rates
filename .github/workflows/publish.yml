@@ -7,10 +7,11 @@ on:
 permissions:
   contents: read
   id-token: write
+  packages: write
 
 jobs:
-  publish:
-    name: Publish
+  publish-npm:
+    name: Publish to npm
     runs-on: ubuntu-latest
 
     steps:
@@ -30,3 +31,39 @@ jobs:
       - run: pnpm test
       - run: pnpm build
       - run: npm publish --provenance --access public
+
+  publish-gpr:
+    name: Publish to GitHub Packages
+    needs: publish-npm
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://npm.pkg.github.com/
+          scope: "@ntelikatos"
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      - name: Scope package name for GitHub Packages
+        run: |
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.name = '@ntelikatos/ecb-exchange-rates-ts';
+            pkg.publishConfig = { registry: 'https://npm.pkg.github.com' };
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+          "
+
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
