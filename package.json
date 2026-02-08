@@ -48,13 +48,13 @@
   ],
   "license": "MIT",
   "author": "Ntelikatos",
-  "homepage": "https://github.com/Ntelikatos/ecb-exchange-rates#readme",
+  "homepage": "https://github.com/Ntelikatos/ecb-exchange-rates-ts#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Ntelikatos/ecb-exchange-rates.git"
+    "url": "git+https://github.com/Ntelikatos/ecb-exchange-rates-ts.git"
   },
   "bugs": {
-    "url": "https://github.com/Ntelikatos/ecb-exchange-rates/issues"
+    "url": "https://github.com/Ntelikatos/ecb-exchange-rates-ts/issues"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0",
@@ -66,6 +66,7 @@
     "vitest": "^3.0.0"
   },
   "publishConfig": {
+    "registry": "@ntelikatos:registry=https://npm.pkg.github.com",
     "access": "public"
   }
 }

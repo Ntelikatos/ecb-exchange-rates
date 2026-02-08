@@ -80,6 +80,8 @@ export interface ExchangeRateResult {
   readonly rates: ReadonlyMap<string, number>;
   /** The target currency. */
   readonly currency: string;
+  /** The originally requested date (set when fallback to a different date occurred). */
+  readonly requestedDate?: string;
 }
 
 /**
@@ -106,6 +108,8 @@ export interface ConversionResult {
   readonly date: string;
   /** The target currency code. */
   readonly currency: string;
+  /** The originally requested date, if different from the actual rate date due to weekend/holiday fallback. */
+  readonly requestedDate?: string;
 }
 
 /**

@@ -2,25 +2,27 @@ import { describe, expect, it } from "vitest";
 import {
   CROSS_CURRENCY_MULTI_DATE_RESPONSE,
   CROSS_CURRENCY_RESPONSE,
+  CROSS_CURRENCY_WEEKEND_FALLBACK_RESPONSE,
   EMPTY_RESPONSE,
   MULTI_CURRENCY_RESPONSE,
   MockFetcher,
   SINGLE_CURRENCY_RESPONSE,
+  WEEKEND_FALLBACK_RESPONSE,
 } from "./__tests__/fixtures.js";
 import { EcbClient } from "./client.js";
 import { EcbNoDataError, EcbValidationError } from "./errors/index.js";
 
 describe("EcbClient", () => {
   describe("getRate", () => {
-    it("returns single currency rate result", async () => {
+    it("returns single currency rate result (most recent from lookback)", async () => {
       const client = EcbClient.withFetcher(new MockFetcher(SINGLE_CURRENCY_RESPONSE));
-      const result = await client.getRate("USD", "2025-01-15");
+      const result = await client.getRate("USD", "2025-01-16");
 
       expect(result.base).toBe("EUR");
       expect(result.currency).toBe("USD");
-      expect(result.rates.size).toBe(2);
-      expect(result.rates.get("2025-01-15")).toBe(1.03);
+      expect(result.rates.size).toBe(1);
       expect(result.rates.get("2025-01-16")).toBe(1.0303);
+      expect(result.requestedDate).toBeUndefined();
     });
   });
 
@@ -113,6 +115,7 @@ describe("EcbClient", () => {
 
       expect(result.base).toBe("USD");
       expect(result.currency).toBe("GBP");
+      expect(result.rates.size).toBe(1);
       const rate = result.rates.get("2025-01-15");
       expect(rate).toBeCloseTo(0.84 / 1.03, 10);
     });
@@ -126,6 +129,7 @@ describe("EcbClient", () => {
 
       expect(result.base).toBe("USD");
       expect(result.currency).toBe("EUR");
+      expect(result.rates.size).toBe(1);
       const rate = result.rates.get("2025-01-15");
       expect(rate).toBeCloseTo(1 / 1.03, 10);
     });
@@ -176,10 +180,10 @@ describe("EcbClient", () => {
 
     it("default EUR base behavior is unchanged", async () => {
       const client = EcbClient.withFetcher(new MockFetcher(SINGLE_CURRENCY_RESPONSE));
-      const result = await client.getRate("USD", "2025-01-15");
+      const result = await client.getRate("USD", "2025-01-16");
 
       expect(result.base).toBe("EUR");
-      expect(result.rates.get("2025-01-15")).toBe(1.03);
+      expect(result.rates.get("2025-01-16")).toBe(1.0303);
     });
 
     it("per-query baseCurrency override computes cross rates", async () => {
@@ -205,15 +209,81 @@ describe("EcbClient", () => {
     });
   });
 
+  describe("weekend/holiday fallback", () => {
+    it("getRate returns Friday rate for Saturday request with requestedDate set", async () => {
+      const client = EcbClient.withFetcher(new MockFetcher(WEEKEND_FALLBACK_RESPONSE));
+      // Saturday Jan 18 → lookback fetches Jan 8-18 → fixture has Jan 15-17
+      const result = await client.getRate("USD", "2025-01-18");
+
+      expect(result.rates.size).toBe(1);
+      expect(result.rates.get("2025-01-17")).toBe(1.04); // Friday's rate
+      expect(result.requestedDate).toBe("2025-01-18");
+    });
+
+    it("getRate returns exact date with no requestedDate when date matches", async () => {
+      const client = EcbClient.withFetcher(new MockFetcher(SINGLE_CURRENCY_RESPONSE));
+      const result = await client.getRate("USD", "2025-01-16");
+
+      expect(result.rates.size).toBe(1);
+      expect(result.rates.get("2025-01-16")).toBe(1.0303);
+      expect(result.requestedDate).toBeUndefined();
+    });
+
+    it("convert includes requestedDate on weekend fallback", async () => {
+      const client = EcbClient.withFetcher(new MockFetcher(WEEKEND_FALLBACK_RESPONSE));
+      const conversion = await client.convert(100, "USD", "2025-01-18");
+
+      expect(conversion.date).toBe("2025-01-17"); // Friday's date
+      expect(conversion.requestedDate).toBe("2025-01-18");
+      expect(conversion.amount).toBe(104); // 100 * 1.04
+    });
+
+    it("convert has no requestedDate when date matches", async () => {
+      const client = EcbClient.withFetcher(new MockFetcher(SINGLE_CURRENCY_RESPONSE));
+      const conversion = await client.convert(100, "USD", "2025-01-16");
+
+      expect(conversion.date).toBe("2025-01-16");
+      expect(conversion.requestedDate).toBeUndefined();
+    });
+
+    it("weekend fallback works with non-EUR base currency", async () => {
+      const client = EcbClient.withFetcher(
+        new MockFetcher(CROSS_CURRENCY_WEEKEND_FALLBACK_RESPONSE),
+        { baseCurrency: "USD" },
+      );
+      const result = await client.getRate("GBP", "2025-01-18");
+
+      expect(result.base).toBe("USD");
+      expect(result.rates.size).toBe(1);
+      // Friday Jan 17: GBP/USD = 0.85/1.04
+      expect(result.rates.get("2025-01-17")).toBeCloseTo(0.85 / 1.04, 10);
+      expect(result.requestedDate).toBe("2025-01-18");
+    });
+
+    it("getRateHistory is NOT affected by lookback (returns all dates)", async () => {
+      const client = EcbClient.withFetcher(new MockFetcher(WEEKEND_FALLBACK_RESPONSE));
+      const result = await client.getRateHistory("USD", "2025-01-15", "2025-01-17");
+
+      // Returns all 3 dates, not filtered to most recent
+      expect(result.rates.size).toBe(3);
+      expect(result.requestedDate).toBeUndefined();
+    });
+
+    it("throws EcbNoDataError when lookback window has no data", async () => {
+      const client = EcbClient.withFetcher(new MockFetcher(EMPTY_RESPONSE));
+      await expect(client.getRate("USD", "2025-01-18")).rejects.toThrow(EcbNoDataError);
+    });
+  });
+
   describe("convert", () => {
     it("converts base currency amount to target currency", async () => {
       const client = EcbClient.withFetcher(new MockFetcher(SINGLE_CURRENCY_RESPONSE));
-      const conversion = await client.convert(100, "USD", "2025-01-15");
+      const conversion = await client.convert(100, "USD", "2025-01-16");
 
       expect(conversion).not.toBeNull();
-      expect(conversion?.amount).toBe(103);
-      expect(conversion?.rate).toBe(1.03);
-      expect(conversion?.date).toBe("2025-01-15");
+      expect(conversion?.amount).toBe(103.03);
+      expect(conversion?.rate).toBe(1.0303);
+      expect(conversion?.date).toBe("2025-01-16");
     });
 
     it("throws EcbNoDataError when no data available", async () => {
@@ -224,19 +294,19 @@ describe("EcbClient", () => {
 
     it("rounds converted amount to 2 decimal places", async () => {
       const client = EcbClient.withFetcher(new MockFetcher(SINGLE_CURRENCY_RESPONSE));
-      // 33.33 * 1.03 = 34.3299 → Math.round(3432.99) / 100 = 34.33
-      const conversion = await client.convert(33.33, "USD", "2025-01-15");
+      // 33.33 * 1.0303 = 34.3399 → Math.round(3433.99) / 100 = 34.34
+      const conversion = await client.convert(33.33, "USD", "2025-01-16");
 
-      expect(conversion?.amount).toBe(34.33);
+      expect(conversion?.amount).toBe(34.34);
     });
 
     it("includes currency and date in conversion result", async () => {
       const client = EcbClient.withFetcher(new MockFetcher(SINGLE_CURRENCY_RESPONSE));
-      const conversion = await client.convert(100, "USD", "2025-01-15");
+      const conversion = await client.convert(100, "USD", "2025-01-16");
 
       expect(conversion?.currency).toBe("USD");
-      expect(conversion?.date).toBe("2025-01-15");
-      expect(conversion?.rate).toBe(1.03);
+      expect(conversion?.date).toBe("2025-01-16");
+      expect(conversion?.rate).toBe(1.0303);
     });
   });
 
@@ -273,8 +343,9 @@ describe("EcbClient", () => {
       const fetcher = new MockFetcher(SINGLE_CURRENCY_RESPONSE);
       const client = EcbClient.withFetcher(fetcher);
 
-      const result = await client.getRate("USD", "2025-01-15");
+      const result = await client.getRate("USD", "2025-01-16");
       expect(result.base).toBe("EUR");
+      expect(result.rates.size).toBe(1);
     });
   });
 
@@ -375,10 +446,11 @@ describe("EcbClient", () => {
       }
     });
 
-    it("shows single date in message when startDate equals endDate", async () => {
+    it("shows date range in message including lookback window", async () => {
       const client = EcbClient.withFetcher(new MockFetcher(EMPTY_RESPONSE));
 
-      await expect(client.getRate("USD", "2025-01-18")).rejects.toThrow(/on 2025-01-18\./);
+      // getRate uses lookback, so error message shows the range (10 days back)
+      await expect(client.getRate("USD", "2025-01-18")).rejects.toThrow(/2025-01-08 to 2025-01-18/);
     });
 
     it("getObservations throws EcbNoDataError for empty response", async () => {

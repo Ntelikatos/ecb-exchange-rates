@@ -10,11 +10,13 @@ import type {
   ExchangeRatesResult,
   Frequency,
 } from "./types/index.js";
+import { subtractCalendarDays } from "./utils/date.js";
 import { buildExchangeRateUrl } from "./utils/url-builder.js";
 import { validateQuery } from "./utils/validation.js";
 
 const DEFAULT_BASE_URL = "https://data-api.ecb.europa.eu/service";
 const DEFAULT_BASE_CURRENCY = "EUR";
+const DEFAULT_LOOKBACK_DAYS = 10;
 
 /**
  * ECB Exchange Rates Client.
@@ -76,10 +78,11 @@ export class EcbClient {
   async getRate(currency: string, date: string): Promise<ExchangeRateResult> {
     const query: ExchangeRateQuery = {
       currencies: [currency],
-      startDate: date,
+      startDate: subtractCalendarDays(date, DEFAULT_LOOKBACK_DAYS),
       endDate: date,
     };
-    return this.getSingleCurrencyRates(query);
+    const result = await this.getSingleCurrencyRates(query);
+    return this.filterToMostRecentRate(result, date);
   }
 
   /**
@@ -147,6 +150,7 @@ export class EcbClient {
       rate,
       date: actualDate,
       currency,
+      ...(result.requestedDate ? { requestedDate: result.requestedDate } : {}),
     };
   }
 
@@ -259,6 +263,33 @@ export class EcbClient {
     }
 
     return result;
+  }
+
+  /**
+   * Filters a rate result to only the most recent observation.
+   * Used by getRate() to pick the latest rate from the lookback window.
+   * Sets requestedDate when the actual date differs from what was requested.
+   */
+  private filterToMostRecentRate(
+    result: ExchangeRateResult,
+    requestedDate: string,
+  ): ExchangeRateResult {
+    if (result.rates.size === 0) return result;
+
+    // Find the most recent date (Map preserves insertion order, but let's sort to be safe)
+    const sortedDates = [...result.rates.keys()].sort();
+    const mostRecentDate = sortedDates[sortedDates.length - 1] as string;
+    const rate = result.rates.get(mostRecentDate) as number;
+
+    const rates = new Map<string, number>();
+    rates.set(mostRecentDate, rate);
+
+    return {
+      base: result.base,
+      currency: result.currency,
+      rates,
+      ...(mostRecentDate !== requestedDate ? { requestedDate } : {}),
+    };
   }
 
   private async getSingleCurrencyRates(query: ExchangeRateQuery): Promise<ExchangeRateResult> {

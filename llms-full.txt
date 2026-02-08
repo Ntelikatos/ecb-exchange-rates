@@ -215,6 +215,29 @@ const result = await ecb.getRates({
 });
 ```
 
+## Weekend & Holiday Fallback
+
+The ECB publishes rates on business days only. `getRate()` and `convert()` automatically handle weekends and holidays by querying a 10-day lookback window and returning the most recent available rate.
+
+```ts
+const ecb = new EcbClient();
+
+// Saturday → automatically returns Friday's rate
+const result = await ecb.getRate("USD", "2025-01-18");
+result.rates.get("2025-01-17"); // 1.04 (Friday's rate)
+result.requestedDate; // "2025-01-18" (what was requested)
+
+// convert() also handles weekends
+const conversion = await ecb.convert(100, "USD", "2025-01-18");
+conversion.date; // "2025-01-17"
+conversion.requestedDate; // "2025-01-18"
+conversion.amount; // 104
+```
+
+When no fallback is needed (business day request), `requestedDate` is `undefined`.
+
+Range methods (`getRateHistory()`, `getRates()`, `getObservations()`) are NOT affected — they return exactly what the ECB provides for your date range.
+
 ## ALL_CURRENCY_CODES
 
 Runtime array of all 31 ECB-supported currency codes. The `CurrencyCode` type is derived from it.
@@ -316,7 +339,7 @@ const client = EcbClient.withFetcher(new CachingFetcher());
 
 ## Important Notes
 
-- ECB publishes rates on business days only (~16:00 CET). Weekends/holidays throw `EcbNoDataError`.
+- ECB publishes rates on business days only (~16:00 CET). `getRate()` and `convert()` automatically fall back to the last available rate on weekends/holidays. Range methods still throw `EcbNoDataError` if no data exists in the requested range.
 - Historical rates available from January 4, 1999.
 - No API key required. Free and open.
 - Use `ALL_CURRENCY_CODES` to programmatically list all 31 supported currencies.

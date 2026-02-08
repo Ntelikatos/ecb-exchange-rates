@@ -110,6 +110,26 @@ const eurRate = await client.getRate("EUR", "2025-01-15");
 // Returns 1/1.03 ≈ 0.9709 (i.e., 1 USD = 0.97 EUR)
 ```
 
+### Weekend & holiday handling
+
+The ECB only publishes rates on business days. When you call `getRate()` or `convert()` for a weekend or holiday, the library automatically fetches a 10-day lookback window and returns the most recent available rate:
+
+```ts
+const ecb = new EcbClient();
+
+// Saturday → automatically returns Friday's rate
+const result = await ecb.getRate("USD", "2025-01-18");
+console.log(result.rates); // Map { "2025-01-17" => 1.04 }
+console.log(result.requestedDate); // "2025-01-18" (original request)
+
+// Works with convert() too
+const conversion = await ecb.convert(100, "USD", "2025-01-18");
+console.log(conversion.date); // "2025-01-17"
+console.log(conversion.requestedDate); // "2025-01-18"
+```
+
+Range methods (`getRateHistory()`, `getRates()`, `getObservations()`) are not affected — they return exactly what the ECB provides for the requested range.
+
 ## API
 
 | Method | Description | Returns |
@@ -119,6 +139,8 @@ const eurRate = await client.getRate("EUR", "2025-01-15");
 | `getRates(query)` | Multiple currencies | `ExchangeRatesResult` |
 | `getObservations(query)` | Raw observation array | `ExchangeRateObservation[]` |
 | `convert(amount, currency, date)` | Currency conversion | `{ amount, rate, date, currency }` |
+
+> **Note:** `getRate()` and `convert()` include a `requestedDate` field when a weekend/holiday fallback occurred (i.e., the returned rate is from a different date than requested).
 
 ## Error Handling
 
@@ -149,7 +171,7 @@ try {
 ## Good to know
 
 - **No API key required** - the ECB data API is free and open.
-- **Business days only** - the ECB publishes rates on TARGET working days (no weekends or holidays).
+- **Automatic weekend/holiday fallback** - `getRate()` and `convert()` automatically return the last available rate when a weekend or holiday is requested. The `requestedDate` field indicates the original date when a fallback occurred. Range methods (`getRateHistory()`, `getRates()`) are not affected.
 - **Data from 1999** - historical rates go back to January 4, 1999.
 - **Daily reference rates** - set around 16:00 CET each business day.
 - **Node.js >= 20** - uses native `fetch` (no polyfill needed).

@@ -257,6 +257,134 @@ export const CROSS_CURRENCY_MULTI_DATE_RESPONSE: SdmxJsonResponse = {
 };
 
 /**
+ * Weekend fallback response: data for Wed-Fri (Jan 15-17) returned
+ * when querying a lookback window that includes a weekend date.
+ * Used to test that getRate() picks the most recent (Friday) rate.
+ */
+export const WEEKEND_FALLBACK_RESPONSE: SdmxJsonResponse = {
+  header: {
+    id: "test-weekend-fallback",
+    test: false,
+    prepared: "2026-02-07T21:00:00.000+00:00",
+    sender: { id: "ECB" },
+  },
+  dataSets: [
+    {
+      action: "Replace",
+      series: {
+        "0:0:0:0:0": {
+          attributes: [],
+          observations: {
+            "0": [1.03, 0],
+            "1": [1.035, 0],
+            "2": [1.04, 0],
+          },
+        },
+      },
+    },
+  ],
+  structure: {
+    name: "Exchange Rates",
+    dimensions: {
+      series: [
+        { id: "FREQ", name: "Frequency", values: [{ id: "D", name: "Daily" }] },
+        { id: "CURRENCY", name: "Currency", values: [{ id: "USD", name: "US dollar" }] },
+        {
+          id: "CURRENCY_DENOM",
+          name: "Currency denominator",
+          values: [{ id: "EUR", name: "Euro" }],
+        },
+        { id: "EXR_TYPE", name: "Exchange rate type", values: [{ id: "SP00", name: "Spot" }] },
+        { id: "EXR_SUFFIX", name: "Series variation", values: [{ id: "A", name: "Average" }] },
+      ],
+      observation: [
+        {
+          id: "TIME_PERIOD",
+          name: "Time period or range",
+          role: "time",
+          values: [
+            { id: "2025-01-15", name: "2025-01-15" },
+            { id: "2025-01-16", name: "2025-01-16" },
+            { id: "2025-01-17", name: "2025-01-17" },
+          ],
+        },
+      ],
+    },
+  },
+};
+
+/**
+ * Cross-currency weekend fallback: USD + GBP data for Jan 15-17.
+ * Used to test weekend fallback combined with non-EUR base currency.
+ */
+export const CROSS_CURRENCY_WEEKEND_FALLBACK_RESPONSE: SdmxJsonResponse = {
+  header: {
+    id: "test-cross-weekend-fallback",
+    test: false,
+    prepared: "2026-02-07T21:00:00.000+00:00",
+    sender: { id: "ECB" },
+  },
+  dataSets: [
+    {
+      action: "Replace",
+      series: {
+        "0:0:0:0:0": {
+          attributes: [],
+          observations: {
+            "0": [1.03, 0],
+            "1": [1.035, 0],
+            "2": [1.04, 0],
+          },
+        },
+        "0:1:0:0:0": {
+          attributes: [],
+          observations: {
+            "0": [0.84, 0],
+            "1": [0.845, 0],
+            "2": [0.85, 0],
+          },
+        },
+      },
+    },
+  ],
+  structure: {
+    name: "Exchange Rates",
+    dimensions: {
+      series: [
+        { id: "FREQ", name: "Frequency", values: [{ id: "D", name: "Daily" }] },
+        {
+          id: "CURRENCY",
+          name: "Currency",
+          values: [
+            { id: "USD", name: "US dollar" },
+            { id: "GBP", name: "Pound sterling" },
+          ],
+        },
+        {
+          id: "CURRENCY_DENOM",
+          name: "Currency denominator",
+          values: [{ id: "EUR", name: "Euro" }],
+        },
+        { id: "EXR_TYPE", name: "Exchange rate type", values: [{ id: "SP00", name: "Spot" }] },
+        { id: "EXR_SUFFIX", name: "Series variation", values: [{ id: "A", name: "Average" }] },
+      ],
+      observation: [
+        {
+          id: "TIME_PERIOD",
+          name: "Time period or range",
+          role: "time",
+          values: [
+            { id: "2025-01-15", name: "2025-01-15" },
+            { id: "2025-01-16", name: "2025-01-16" },
+            { id: "2025-01-17", name: "2025-01-17" },
+          ],
+        },
+      ],
+    },
+  },
+};
+
+/**
  * Empty response: valid SDMX-JSON structure but no observations.
  * This is what the ECB returns for weekends, holidays, or future dates.
  */
