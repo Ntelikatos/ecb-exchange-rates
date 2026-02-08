@@ -111,11 +111,10 @@ describe("EcbClient", () => {
       expect(conversion?.date).toBe("2025-01-15");
     });
 
-    it("returns null when no data available", async () => {
+    it("throws EcbNoDataError when no data available", async () => {
       const client = EcbClient.withFetcher(new MockFetcher(EMPTY_RESPONSE));
-      const conversion = await client.convert(100, "USD", "2025-01-15");
 
-      expect(conversion).toBeNull();
+      await expect(client.convert(100, "USD", "2025-01-15")).rejects.toThrow(EcbNoDataError);
     });
 
     it("rounds converted amount to 2 decimal places", async () => {
@@ -284,11 +283,10 @@ describe("EcbClient", () => {
       ).rejects.toThrow(EcbNoDataError);
     });
 
-    it("convert returns null instead of throwing for empty response", async () => {
+    it("convert throws EcbNoDataError for empty response", async () => {
       const client = EcbClient.withFetcher(new MockFetcher(EMPTY_RESPONSE));
-      const result = await client.convert(100, "USD", "2025-01-18");
 
-      expect(result).toBeNull();
+      await expect(client.convert(100, "USD", "2025-01-18")).rejects.toThrow(EcbNoDataError);
     });
 
     it("throws EcbNoDataError when API returns empty body (real ECB behavior)", async () => {

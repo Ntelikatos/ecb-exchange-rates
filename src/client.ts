@@ -135,19 +135,10 @@ export class EcbClient {
    * @param amount - The amount in the base currency
    * @param currency - Target currency code
    * @param date - The date for the exchange rate (YYYY-MM-DD)
-   * @returns The converted amount, or null if no rate is available
+   * @throws {EcbNoDataError} When no rate is available for the given date (weekends, holidays, future dates)
    */
-  async convert(amount: number, currency: string, date: string): Promise<ConversionResult | null> {
-    let result: ExchangeRateResult;
-    try {
-      result = await this.getRate(currency, date);
-    } catch (error) {
-      if (error instanceof EcbNoDataError) {
-        return null;
-      }
-      throw error;
-    }
-
+  async convert(amount: number, currency: string, date: string): Promise<ConversionResult> {
+    const result = await this.getRate(currency, date);
     const entry = result.rates.entries().next().value as [string, number];
     const [actualDate, rate] = entry;
 
