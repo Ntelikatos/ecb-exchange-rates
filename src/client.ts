@@ -164,7 +164,13 @@ export class EcbClient {
   }
 
   private async fetchAndParse(query: ExchangeRateQuery): Promise<ExchangeRateObservation[]> {
-    const url = buildExchangeRateUrl(query, this.baseUrl);
+    const effectiveBase = query.baseCurrency ?? "EUR";
+    const isNonEurBase = effectiveBase !== "EUR";
+
+    // When using a non-EUR base, we need to fetch the base currency's EUR rate too
+    const fetchQuery = isNonEurBase ? this.buildEurQuery(query, effectiveBase) : query;
+
+    const url = buildExchangeRateUrl(fetchQuery, this.baseUrl);
     const raw = await this.fetcher.get(url);
 
     if (!raw || raw.trim().length === 0) {
@@ -178,7 +184,81 @@ export class EcbClient {
       throw new EcbNoDataError(query.currencies, query.startDate, query.endDate);
     }
 
+    if (isNonEurBase) {
+      return this.adjustForBaseCurrency(observations, query.currencies, effectiveBase);
+    }
+
     return observations;
+  }
+
+  /**
+   * Builds an EUR-denominated query that includes the base currency
+   * so we can compute cross rates after fetching.
+   */
+  private buildEurQuery(query: ExchangeRateQuery, baseCurrency: string): ExchangeRateQuery {
+    const currencies = query.currencies.includes(baseCurrency)
+      ? query.currencies
+      : [...query.currencies, baseCurrency];
+
+    return {
+      ...query,
+      currencies,
+      baseCurrency: "EUR",
+    };
+  }
+
+  /**
+   * Converts EUR-based observations to cross rates against a non-EUR base.
+   *
+   * Math: if ECB gives 1 EUR = X base, 1 EUR = Y target,
+   * then 1 base = Y/X target.
+   * For EUR as target: 1 base = 1/X EUR.
+   */
+  private adjustForBaseCurrency(
+    observations: ExchangeRateObservation[],
+    requestedCurrencies: readonly string[],
+    baseCurrency: string,
+  ): ExchangeRateObservation[] {
+    // Group base currency rates by date
+    const baseRateByDate = new Map<string, number>();
+    for (const obs of observations) {
+      if (obs.currency === baseCurrency) {
+        baseRateByDate.set(obs.date, obs.rate);
+      }
+    }
+
+    const result: ExchangeRateObservation[] = [];
+    const wantsEur = requestedCurrencies.includes("EUR");
+
+    for (const obs of observations) {
+      // Skip the base currency observations (used only for computation)
+      if (obs.currency === baseCurrency) continue;
+
+      const baseRate = baseRateByDate.get(obs.date);
+      if (baseRate === undefined || baseRate === 0) continue;
+
+      result.push({
+        date: obs.date,
+        currency: obs.currency,
+        baseCurrency,
+        rate: obs.rate / baseRate,
+      });
+    }
+
+    // Synthesize EUR as a target currency if requested: 1 base = 1/baseRate EUR
+    if (wantsEur) {
+      for (const [date, baseRate] of baseRateByDate) {
+        if (baseRate === 0) continue;
+        result.push({
+          date,
+          currency: "EUR",
+          baseCurrency,
+          rate: 1 / baseRate,
+        });
+      }
+    }
+
+    return result;
   }
 
   private async getSingleCurrencyRates(query: ExchangeRateQuery): Promise<ExchangeRateResult> {

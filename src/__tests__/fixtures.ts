@@ -122,6 +122,141 @@ export const MULTI_CURRENCY_RESPONSE: SdmxJsonResponse = {
 };
 
 /**
+ * Cross-currency response: USD + GBP from ECB (EUR-denominated).
+ * Used to test redenomination to a non-EUR base (e.g., USD).
+ *
+ * EUR/USD = 1.03, EUR/GBP = 0.84
+ * Cross rate: 1 USD = 0.84/1.03 GBP ≈ 0.8155
+ * EUR as target: 1 USD = 1/1.03 EUR ≈ 0.9709
+ */
+export const CROSS_CURRENCY_RESPONSE: SdmxJsonResponse = {
+  header: {
+    id: "test-cross",
+    test: false,
+    prepared: "2026-02-07T21:00:00.000+00:00",
+    sender: { id: "ECB" },
+  },
+  dataSets: [
+    {
+      action: "Replace",
+      series: {
+        "0:0:0:0:0": {
+          attributes: [],
+          observations: {
+            "0": [1.03, 0],
+          },
+        },
+        "0:1:0:0:0": {
+          attributes: [],
+          observations: {
+            "0": [0.84, 0],
+          },
+        },
+      },
+    },
+  ],
+  structure: {
+    name: "Exchange Rates",
+    dimensions: {
+      series: [
+        { id: "FREQ", name: "Frequency", values: [{ id: "D", name: "Daily" }] },
+        {
+          id: "CURRENCY",
+          name: "Currency",
+          values: [
+            { id: "USD", name: "US dollar" },
+            { id: "GBP", name: "Pound sterling" },
+          ],
+        },
+        {
+          id: "CURRENCY_DENOM",
+          name: "Currency denominator",
+          values: [{ id: "EUR", name: "Euro" }],
+        },
+        { id: "EXR_TYPE", name: "Exchange rate type", values: [{ id: "SP00", name: "Spot" }] },
+        { id: "EXR_SUFFIX", name: "Series variation", values: [{ id: "A", name: "Average" }] },
+      ],
+      observation: [
+        {
+          id: "TIME_PERIOD",
+          name: "Time period or range",
+          role: "time",
+          values: [{ id: "2025-01-15", name: "2025-01-15" }],
+        },
+      ],
+    },
+  },
+};
+
+/**
+ * Cross-currency response with multiple dates: USD + GBP, 2 dates each.
+ * Used to test multi-date cross-currency redenomination.
+ */
+export const CROSS_CURRENCY_MULTI_DATE_RESPONSE: SdmxJsonResponse = {
+  header: {
+    id: "test-cross-multi",
+    test: false,
+    prepared: "2026-02-07T21:00:00.000+00:00",
+    sender: { id: "ECB" },
+  },
+  dataSets: [
+    {
+      action: "Replace",
+      series: {
+        "0:0:0:0:0": {
+          attributes: [],
+          observations: {
+            "0": [1.03, 0],
+            "1": [1.04, 0],
+          },
+        },
+        "0:1:0:0:0": {
+          attributes: [],
+          observations: {
+            "0": [0.84, 0],
+            "1": [0.85, 0],
+          },
+        },
+      },
+    },
+  ],
+  structure: {
+    name: "Exchange Rates",
+    dimensions: {
+      series: [
+        { id: "FREQ", name: "Frequency", values: [{ id: "D", name: "Daily" }] },
+        {
+          id: "CURRENCY",
+          name: "Currency",
+          values: [
+            { id: "USD", name: "US dollar" },
+            { id: "GBP", name: "Pound sterling" },
+          ],
+        },
+        {
+          id: "CURRENCY_DENOM",
+          name: "Currency denominator",
+          values: [{ id: "EUR", name: "Euro" }],
+        },
+        { id: "EXR_TYPE", name: "Exchange rate type", values: [{ id: "SP00", name: "Spot" }] },
+        { id: "EXR_SUFFIX", name: "Series variation", values: [{ id: "A", name: "Average" }] },
+      ],
+      observation: [
+        {
+          id: "TIME_PERIOD",
+          name: "Time period or range",
+          role: "time",
+          values: [
+            { id: "2025-01-15", name: "2025-01-15" },
+            { id: "2025-01-16", name: "2025-01-16" },
+          ],
+        },
+      ],
+    },
+  },
+};
+
+/**
  * Empty response: valid SDMX-JSON structure but no observations.
  * This is what the ECB returns for weekends, holidays, or future dates.
  */

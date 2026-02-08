@@ -55,13 +55,14 @@ describe("buildExchangeRateUrl", () => {
     expect(url).toContain("/data/EXR/D.USD.EUR.SP00.A");
   });
 
-  it("uses custom baseCurrency when specified", () => {
+  it("always uses EUR in URL even when baseCurrency is specified", () => {
     const url = buildExchangeRateUrl({
       currencies: ["GBP"],
       startDate: "2025-01-01",
       baseCurrency: "USD",
     });
 
-    expect(url).toContain("/data/EXR/D.GBP.USD.SP00.A");
+    expect(url).toContain("/data/EXR/D.GBP.EUR.SP00.A");
+    expect(url).not.toContain("USD");
   });
 });

@@ -44,4 +44,14 @@ export function validateQuery(query: ExchangeRateQuery): void {
       `Invalid baseCurrency "${query.baseCurrency}". Must be a 3-letter ISO 4217 code.`,
     );
   }
+
+  if (
+    query.baseCurrency !== undefined &&
+    query.currencies.length === 1 &&
+    query.currencies[0] === query.baseCurrency
+  ) {
+    throw new EcbValidationError(
+      `baseCurrency "${query.baseCurrency}" cannot be the same as the only target currency.`,
+    );
+  }
 }

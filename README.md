@@ -72,7 +72,7 @@ const obs = await ecb.getObservations({
 
 ```ts
 const ecb = new EcbClient({
-  baseCurrency: "EUR",  // default denomination currency (configurable)
+  baseCurrency: "USD",  // express all rates in USD (default: "EUR")
   timeoutMs: 30_000,    // request timeout
   baseUrl: "https://data-api.ecb.europa.eu/service", // API endpoint
 });
@@ -86,6 +86,28 @@ const result = await ecb.getRates({
   startDate: "2025-01-15",
   baseCurrency: "USD", // override for this query only
 });
+```
+
+### Cross-currency support
+
+The ECB API only publishes EUR-denominated rates. When you set a non-EUR `baseCurrency`, the library automatically:
+
+1. Fetches EUR-based rates from the ECB (including the base currency)
+2. Computes cross rates: `rate = eurTargetRate / eurBaseRate`
+3. Returns results denominated in your chosen base currency
+
+```ts
+// Get GBP rate in terms of USD
+const client = new EcbClient({ baseCurrency: "USD" });
+const result = await client.getRate("GBP", "2025-01-15");
+// If EUR/USD = 1.03 and EUR/GBP = 0.84, returns 0.84/1.03 ≈ 0.8155
+
+// Convert 100 USD to GBP
+const conversion = await client.convert(100, "GBP", "2025-01-15");
+
+// EUR as a target currency also works
+const eurRate = await client.getRate("EUR", "2025-01-15");
+// Returns 1/1.03 ≈ 0.9709 (i.e., 1 USD = 0.97 EUR)
 ```
 
 ## API
@@ -120,7 +142,7 @@ try {
 | Bundle size | **~2 KB** | ~50 KB | ~120 KB |
 | TypeScript | Native | Partial | No |
 | Last updated | 2026 | 2024 | 2015 |
-| Configurable base currency | Yes | No | No |
+| Cross-currency support | Yes | No | No |
 | Typed error classes | Yes | No | No |
 | ESM + CJS | Yes | CJS only | CJS only |
 

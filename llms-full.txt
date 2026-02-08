@@ -99,19 +99,12 @@ async function safeConvert(amount: number, currency: string, date: string): Prom
 }
 ```
 
-Cross-currency conversion (e.g. USD → GBP via EUR):
+Cross-currency conversion (e.g. USD → GBP) is built-in via `baseCurrency`:
 
 ```ts
-async function crossConvert(amount: number, from: string, to: string, date: string) {
-  const result = await ecb.getRates({ currencies: [from, to], startDate: date, endDate: date });
-  const rates = [...result.rates.values()][0];
-  // Convert: amount in "from" → EUR → "to"
-  const converted = Math.round((amount / rates[from]) * rates[to] * 100) / 100;
-  return { amount: converted, from, to, date };
-}
-
-const result = await crossConvert(500, "USD", "GBP", "2025-01-15");
-// { amount: 409.90, from: "USD", to: "GBP", date: "2025-01-15" }
+const client = new EcbClient({ baseCurrency: "USD" });
+const result = await client.convert(500, "GBP", "2025-01-15");
+// { amount: 407.77, rate: 0.8155, date: "2025-01-15", currency: "GBP" }
 ```
 
 ## All Methods
@@ -179,10 +172,46 @@ Used by `getRates()` and `getObservations()`:
 
 ```ts
 const ecb = new EcbClient({
-  baseCurrency: "USD",  // default: "EUR", configurable per-client or per-query
+  baseCurrency: "USD",  // express all rates in USD (default: "EUR")
   timeoutMs: 10_000,    // default: 30000
   baseUrl: "...",       // default: ECB API endpoint
   fetchFn: customFetch, // for DI / testing
+});
+```
+
+### Cross-Currency Support (Non-EUR Base)
+
+The ECB API only publishes EUR-denominated rates. When `baseCurrency` is set to a non-EUR currency, the library transparently:
+
+1. Fetches EUR-based rates from the ECB (including the base currency's EUR rate)
+2. Computes cross rates mathematically: `crossRate = eurTargetRate / eurBaseRate`
+3. For EUR as a target: `eurRate = 1 / eurBaseRate`
+
+```ts
+const client = new EcbClient({ baseCurrency: "USD" });
+
+// Get GBP in terms of USD: if EUR/USD=1.03, EUR/GBP=0.84 → 1 USD = 0.84/1.03 GBP
+const result = await client.getRate("GBP", "2025-01-15");
+console.log(result.base); // "USD"
+console.log(result.rates.get("2025-01-15")); // ~0.8155
+
+// Convert 100 USD to GBP
+const conversion = await client.convert(100, "GBP", "2025-01-15");
+console.log(conversion.amount); // ~81.55
+
+// EUR as target: 1 USD = 1/1.03 EUR
+const eurRate = await client.getRate("EUR", "2025-01-15");
+console.log(eurRate.rates.get("2025-01-15")); // ~0.9709
+```
+
+Per-query override:
+
+```ts
+const ecb = new EcbClient(); // default EUR base
+const result = await ecb.getRates({
+  currencies: ["GBP", "JPY"],
+  startDate: "2025-01-15",
+  baseCurrency: "USD", // override for this query only
 });
 ```
 

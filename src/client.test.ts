@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  CROSS_CURRENCY_MULTI_DATE_RESPONSE,
+  CROSS_CURRENCY_RESPONSE,
   EMPTY_RESPONSE,
   MULTI_CURRENCY_RESPONSE,
   MockFetcher,
@@ -75,28 +77,131 @@ describe("EcbClient", () => {
     });
 
     it("allows custom baseCurrency via client config", async () => {
-      const client = EcbClient.withFetcher(new MockFetcher(SINGLE_CURRENCY_RESPONSE), {
+      const client = EcbClient.withFetcher(new MockFetcher(CROSS_CURRENCY_RESPONSE), {
         baseCurrency: "USD",
       });
-      // The client passes baseCurrency through to the URL builder.
-      // Here we just verify the client accepts the config without error.
       const obs = await client.getObservations({
         currencies: ["GBP"],
         startDate: "2025-01-15",
-        endDate: "2025-01-16",
+        endDate: "2025-01-15",
       });
-      expect(obs).toHaveLength(2);
+      expect(obs).toHaveLength(1);
+      expect(obs[0]?.baseCurrency).toBe("USD");
     });
 
     it("allows per-query baseCurrency override", async () => {
-      const client = EcbClient.withFetcher(new MockFetcher(SINGLE_CURRENCY_RESPONSE));
+      const client = EcbClient.withFetcher(new MockFetcher(CROSS_CURRENCY_RESPONSE));
       const obs = await client.getObservations({
         currencies: ["GBP"],
         startDate: "2025-01-15",
-        endDate: "2025-01-16",
+        endDate: "2025-01-15",
         baseCurrency: "USD",
       });
-      expect(obs).toHaveLength(2);
+      expect(obs).toHaveLength(1);
+      expect(obs[0]?.baseCurrency).toBe("USD");
+    });
+  });
+
+  describe("cross-currency conversion (non-EUR base)", () => {
+    it("computes correct cross rate for getRate with USD base", async () => {
+      // CROSS_CURRENCY_RESPONSE: EUR/USD=1.03, EUR/GBP=0.84
+      // Expected: 1 USD = 0.84/1.03 GBP ≈ 0.8155339805825243
+      const client = EcbClient.withFetcher(new MockFetcher(CROSS_CURRENCY_RESPONSE), {
+        baseCurrency: "USD",
+      });
+      const result = await client.getRate("GBP", "2025-01-15");
+
+      expect(result.base).toBe("USD");
+      expect(result.currency).toBe("GBP");
+      const rate = result.rates.get("2025-01-15");
+      expect(rate).toBeCloseTo(0.84 / 1.03, 10);
+    });
+
+    it("returns EUR as target currency with non-EUR base", async () => {
+      // Expected: 1 USD = 1/1.03 EUR ≈ 0.9708737864077669
+      const client = EcbClient.withFetcher(new MockFetcher(CROSS_CURRENCY_RESPONSE), {
+        baseCurrency: "USD",
+      });
+      const result = await client.getRate("EUR", "2025-01-15");
+
+      expect(result.base).toBe("USD");
+      expect(result.currency).toBe("EUR");
+      const rate = result.rates.get("2025-01-15");
+      expect(rate).toBeCloseTo(1 / 1.03, 10);
+    });
+
+    it("converts amount with non-EUR base", async () => {
+      // 100 USD → GBP: 100 * (0.84/1.03) ≈ 81.55
+      const client = EcbClient.withFetcher(new MockFetcher(CROSS_CURRENCY_RESPONSE), {
+        baseCurrency: "USD",
+      });
+      const conversion = await client.convert(100, "GBP", "2025-01-15");
+
+      expect(conversion.amount).toBe(Math.round(100 * (0.84 / 1.03) * 100) / 100);
+      expect(conversion.currency).toBe("GBP");
+    });
+
+    it("handles getRates with multiple currencies and non-EUR base", async () => {
+      const client = EcbClient.withFetcher(new MockFetcher(CROSS_CURRENCY_MULTI_DATE_RESPONSE), {
+        baseCurrency: "USD",
+      });
+      const result = await client.getRates({
+        currencies: ["GBP"],
+        startDate: "2025-01-15",
+        endDate: "2025-01-16",
+      });
+
+      expect(result.base).toBe("USD");
+      const jan15 = result.rates.get("2025-01-15");
+      expect(jan15?.GBP).toBeCloseTo(0.84 / 1.03, 10);
+      const jan16 = result.rates.get("2025-01-16");
+      expect(jan16?.GBP).toBeCloseTo(0.85 / 1.04, 10);
+    });
+
+    it("getObservations returns adjusted rates with non-EUR base", async () => {
+      const client = EcbClient.withFetcher(new MockFetcher(CROSS_CURRENCY_RESPONSE), {
+        baseCurrency: "USD",
+      });
+      const obs = await client.getObservations({
+        currencies: ["GBP"],
+        startDate: "2025-01-15",
+        endDate: "2025-01-15",
+      });
+
+      expect(obs).toHaveLength(1);
+      expect(obs[0]?.baseCurrency).toBe("USD");
+      expect(obs[0]?.currency).toBe("GBP");
+      expect(obs[0]?.rate).toBeCloseTo(0.84 / 1.03, 10);
+    });
+
+    it("default EUR base behavior is unchanged", async () => {
+      const client = EcbClient.withFetcher(new MockFetcher(SINGLE_CURRENCY_RESPONSE));
+      const result = await client.getRate("USD", "2025-01-15");
+
+      expect(result.base).toBe("EUR");
+      expect(result.rates.get("2025-01-15")).toBe(1.03);
+    });
+
+    it("per-query baseCurrency override computes cross rates", async () => {
+      const client = EcbClient.withFetcher(new MockFetcher(CROSS_CURRENCY_RESPONSE));
+      const obs = await client.getObservations({
+        currencies: ["GBP"],
+        startDate: "2025-01-15",
+        endDate: "2025-01-15",
+        baseCurrency: "USD",
+      });
+
+      expect(obs).toHaveLength(1);
+      expect(obs[0]?.baseCurrency).toBe("USD");
+      expect(obs[0]?.rate).toBeCloseTo(0.84 / 1.03, 10);
+    });
+
+    it("rejects baseCurrency same as only target currency", async () => {
+      const client = EcbClient.withFetcher(new MockFetcher(SINGLE_CURRENCY_RESPONSE), {
+        baseCurrency: "USD",
+      });
+
+      await expect(client.getRate("USD", "2025-01-15")).rejects.toThrow(EcbValidationError);
     });
   });
 
@@ -153,14 +258,15 @@ describe("EcbClient", () => {
 
   describe("withFetcher", () => {
     it("creates working client with custom fetcher and config", async () => {
-      const fetcher = new MockFetcher(SINGLE_CURRENCY_RESPONSE);
+      const fetcher = new MockFetcher(CROSS_CURRENCY_RESPONSE);
       const client = EcbClient.withFetcher(fetcher, {
         baseUrl: "https://custom.api.com",
-        baseCurrency: "GBP",
+        baseCurrency: "USD",
       });
 
-      const result = await client.getRate("USD", "2025-01-15");
-      expect(result.rates.size).toBe(2);
+      const result = await client.getRate("GBP", "2025-01-15");
+      expect(result.rates.size).toBe(1);
+      expect(result.base).toBe("USD");
     });
 
     it("creates client with only fetcher and no extra config", async () => {
