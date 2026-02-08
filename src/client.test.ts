@@ -200,6 +200,24 @@ describe("EcbClient", () => {
       expect(obs[0]?.rate).toBeCloseTo(0.84 / 1.03, 10);
     });
 
+    it("does not duplicate baseCurrency when already in currencies list", async () => {
+      // MULTI_CURRENCY_RESPONSE has USD + GBP with EUR base
+      // When baseCurrency=USD and currencies includes USD, buildEurQuery should not add USD again
+      const client = EcbClient.withFetcher(new MockFetcher(MULTI_CURRENCY_RESPONSE), {
+        baseCurrency: "USD",
+      });
+      const result = await client.getRates({
+        currencies: ["USD", "GBP"],
+        startDate: "2025-01-15",
+        endDate: "2025-01-16",
+      });
+
+      expect(result.base).toBe("USD");
+      // GBP should be present with cross rate
+      const jan15 = result.rates.get("2025-01-15");
+      expect(jan15?.GBP).toBeCloseTo(0.8442 / 1.03, 10);
+    });
+
     it("rejects baseCurrency same as only target currency", async () => {
       const client = EcbClient.withFetcher(new MockFetcher(SINGLE_CURRENCY_RESPONSE), {
         baseCurrency: "USD",
