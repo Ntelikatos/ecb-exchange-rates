@@ -184,17 +184,17 @@ describe("EcbClient", () => {
     it("rejects invalid date in getRateHistory", async () => {
       const client = EcbClient.withFetcher(new MockFetcher(SINGLE_CURRENCY_RESPONSE));
 
-      await expect(
-        client.getRateHistory("USD", "not-a-date", "2025-01-16"),
-      ).rejects.toThrow(EcbValidationError);
+      await expect(client.getRateHistory("USD", "not-a-date", "2025-01-16")).rejects.toThrow(
+        EcbValidationError,
+      );
     });
 
     it("rejects empty currencies in getRates", async () => {
       const client = EcbClient.withFetcher(new MockFetcher(MULTI_CURRENCY_RESPONSE));
 
-      await expect(
-        client.getRates({ currencies: [], startDate: "2025-01-15" }),
-      ).rejects.toThrow(EcbValidationError);
+      await expect(client.getRates({ currencies: [], startDate: "2025-01-15" })).rejects.toThrow(
+        EcbValidationError,
+      );
     });
 
     it("rejects invalid currency in getObservations", async () => {

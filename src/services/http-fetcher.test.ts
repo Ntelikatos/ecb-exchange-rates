@@ -18,8 +18,7 @@ function mockErrorResponse(
   statusText: string,
   body: string | (() => Promise<string>) = "",
 ): Response {
-  const textFn =
-    typeof body === "function" ? body : vi.fn().mockResolvedValue(body);
+  const textFn = typeof body === "function" ? body : vi.fn().mockResolvedValue(body);
   return {
     ok: false,
     status,
@@ -37,9 +36,7 @@ function createHangingFetch() {
     (_input: string | URL | Request, init?: RequestInit) =>
       new Promise<Response>((_, reject) => {
         init?.signal?.addEventListener("abort", () => {
-          reject(
-            new DOMException("The operation was aborted.", "AbortError"),
-          );
+          reject(new DOMException("The operation was aborted.", "AbortError"));
         });
       }),
   );
@@ -117,11 +114,13 @@ describe("FetchHttpFetcher", () => {
     });
 
     it("returns EcbApiError with empty body when body read fails", async () => {
-      const fetchFn = vi.fn().mockResolvedValue(
-        mockErrorResponse(500, "Internal Server Error", () =>
-          Promise.reject(new Error("stream broken")),
-        ),
-      );
+      const fetchFn = vi
+        .fn()
+        .mockResolvedValue(
+          mockErrorResponse(500, "Internal Server Error", () =>
+            Promise.reject(new Error("stream broken")),
+          ),
+        );
       const fetcher = new FetchHttpFetcher(fetchFn, 30_000);
 
       const error: EcbApiError = await fetcher
@@ -142,9 +141,7 @@ describe("FetchHttpFetcher", () => {
       const fetchFn = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
       const fetcher = new FetchHttpFetcher(fetchFn, 30_000);
 
-      await expect(fetcher.get("https://api.ecb.europa.eu/data")).rejects.toThrow(
-        EcbNetworkError,
-      );
+      await expect(fetcher.get("https://api.ecb.europa.eu/data")).rejects.toThrow(EcbNetworkError);
     });
 
     it("preserves original error message in EcbNetworkError", async () => {
@@ -216,10 +213,7 @@ describe("FetchHttpFetcher", () => {
       const fetchFn = createHangingFetch();
 
       const fetcher = new FetchHttpFetcher(fetchFn as typeof fetch, 30_000);
-      const promise = fetcher.get(
-        "https://api.ecb.europa.eu/data",
-        controller.signal,
-      );
+      const promise = fetcher.get("https://api.ecb.europa.eu/data", controller.signal);
 
       controller.abort();
 
