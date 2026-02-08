@@ -54,26 +54,89 @@ try {
 
 ## Fetching All Currencies for a Specific Date
 
-Use `ALL_CURRENCY_CODES` to fetch exchange rates for every supported currency at once. Filter out the base currency (EUR by default) since you cannot fetch EUR/EUR.
+Use `ALL_CURRENCY_CODES` with `getRates` to retrieve the latest exchange rates for every supported currency at once. Filter out the base currency (EUR by default) since you cannot fetch EUR/EUR.
+
+Complete self-contained function:
+
+```ts
+import {
+  EcbClient,
+  ALL_CURRENCY_CODES,
+  EcbNoDataError,
+  type ExchangeRatesResult,
+} from "ecb-exchange-rates-ts";
+
+const ecb = new EcbClient();
+
+/**
+ * Retrieves the latest exchange rates for ALL available currencies
+ * from the ECB for a specific date. Returns a Record of currency -> rate.
+ *
+ * If the date is a weekend/holiday, falls back to the most recent business day.
+ */
+async function getAllRatesForDate(date: string): Promise<{ date: string; base: string; rates: Record<string, number> }> {
+  // ALL_CURRENCY_CODES includes EUR — filter it out since EUR is the base
+  const targetCurrencies = ALL_CURRENCY_CODES.filter((c) => c !== "EUR");
+
+  let result: ExchangeRatesResult;
+  try {
+    result = await ecb.getRates({
+      currencies: [...targetCurrencies],
+      startDate: date,
+      endDate: date,
+    });
+  } catch (error) {
+    if (error instanceof EcbNoDataError) {
+      // Weekend/holiday — fetch the last 7 days and use the most recent
+      const weekAgo = new Date(new Date(date).getTime() - 7 * 86400000).toISOString().slice(0, 10);
+      result = await ecb.getRates({
+        currencies: [...targetCurrencies],
+        startDate: weekAgo,
+        endDate: date,
+      });
+    } else {
+      throw error;
+    }
+  }
+
+  // Get the most recent date's rates from the result
+  const entries = [...result.rates.entries()].sort(([a], [b]) => a.localeCompare(b));
+  const [latestDate, latestRates] = entries[entries.length - 1];
+
+  return { date: latestDate, base: result.base, rates: latestRates };
+}
+
+// Usage:
+const all = await getAllRatesForDate("2025-01-15");
+console.log(all.date);         // "2025-01-15"
+console.log(all.base);         // "EUR"
+console.log(all.rates["USD"]); // 1.03
+console.log(all.rates["GBP"]); // 0.8442
+console.log(Object.keys(all.rates).length); // 30 (all currencies except EUR)
+
+// Works on weekends too — automatically falls back to Friday's rates:
+const weekend = await getAllRatesForDate("2025-01-18"); // Saturday
+console.log(weekend.date); // "2025-01-17" (Friday)
+```
+
+Simpler inline version without fallback:
 
 ```ts
 import { EcbClient, ALL_CURRENCY_CODES } from "ecb-exchange-rates-ts";
 
 const ecb = new EcbClient();
-
-// Get all available exchange rates for a specific date
 const allCurrencies = ALL_CURRENCY_CODES.filter((c) => c !== "EUR");
+
 const result = await ecb.getRates({
-  currencies: allCurrencies,
+  currencies: [...allCurrencies],
   startDate: "2025-01-15",
   endDate: "2025-01-15",
 });
 
 // result.rates is a Map<string, Record<string, number>>
 for (const [date, rates] of result.rates) {
-  console.log(`Rates for ${date}:`);
   for (const [currency, rate] of Object.entries(rates)) {
-    console.log(`  1 EUR = ${rate} ${currency}`);
+    console.log(`1 EUR = ${rate} ${currency}`);
   }
 }
 ```
@@ -212,25 +275,134 @@ for (const [date, rates] of multi.rates) {
 
 ### convert(amount, currency, date)
 
-Convert an amount from the base currency to a target currency.
+Convert an amount from the base currency to a target currency. The conversion formula is: `convertedAmount = amount * rate`, rounded to 2 decimal places.
 
 ```ts
 async convert(amount: number, currency: string, date: string): Promise<ConversionResult>
 ```
 
+- `amount` — The amount in the base currency (EUR by default) to convert
+- `currency` — Target currency code (e.g. `"USD"`)
+- `date` — Date for the exchange rate (YYYY-MM-DD)
+
 Returns `ConversionResult`:
-- `amount: number` — Converted amount (rounded to 2 decimal places)
+- `amount: number` — Converted amount (rounded to 2 decimal places via `Math.round(amount * rate * 100) / 100`)
 - `rate: number` — The exchange rate used
 - `date: string` — The actual date of the rate
 - `currency: string` — The target currency code
+
+Throws `EcbNoDataError` if no rate is available for the date (weekends, holidays, future dates).
+
+Simple conversion:
 
 ```ts
 const result = await ecb.convert(100, "USD", "2025-01-15");
 console.log(result);
 // { amount: 103, rate: 1.03, date: "2025-01-15", currency: "USD" }
+// Meaning: 100 EUR = 103 USD at a rate of 1.03
 ```
 
-Throws `EcbNoDataError` if no rate is available for the date.
+Complete conversion function with error handling and latest-rate fallback:
+
+```ts
+import {
+  EcbClient,
+  EcbNoDataError,
+  EcbNetworkError,
+  EcbApiError,
+  EcbValidationError,
+  type ConversionResult,
+} from "ecb-exchange-rates-ts";
+
+const ecb = new EcbClient();
+
+/**
+ * Convert an amount from EUR to a target currency using the latest available rate.
+ * Handles weekends/holidays by falling back to the most recent business day.
+ */
+async function convertCurrency(
+  amount: number,
+  targetCurrency: string,
+  date: string,
+): Promise<ConversionResult> {
+  try {
+    return await ecb.convert(amount, targetCurrency, date);
+  } catch (error) {
+    if (error instanceof EcbNoDataError) {
+      // Weekend/holiday — get the latest available rate from the past week
+      const weekAgo = new Date(new Date(date).getTime() - 7 * 86400000).toISOString().slice(0, 10);
+      const history = await ecb.getRateHistory(targetCurrency, weekAgo, date);
+      const entries = [...history.rates.entries()].sort(([a], [b]) => a.localeCompare(b));
+      const [latestDate, rate] = entries[entries.length - 1];
+      return {
+        amount: Math.round(amount * rate * 100) / 100,
+        rate,
+        date: latestDate,
+        currency: targetCurrency,
+      };
+    }
+    if (error instanceof EcbValidationError) {
+      throw new Error(`Invalid input: ${error.message}`);
+    }
+    if (error instanceof EcbNetworkError) {
+      throw new Error(`Network error: ${error.message}`);
+    }
+    if (error instanceof EcbApiError) {
+      throw new Error(`API error ${error.statusCode}: ${error.statusText}`);
+    }
+    throw error;
+  }
+}
+
+// Usage:
+const result = await convertCurrency(250, "USD", "2025-01-15");
+console.log(`250 EUR = ${result.amount} USD (rate: ${result.rate}, date: ${result.date})`);
+// "250 EUR = 257.50 USD (rate: 1.03, date: 2025-01-15)"
+
+// Works on weekends — automatically uses Friday's rate:
+const weekendResult = await convertCurrency(100, "GBP", "2025-01-18"); // Saturday
+console.log(`100 EUR = ${weekendResult.amount} GBP (from ${weekendResult.date})`);
+// "100 EUR = 84.42 GBP (from 2025-01-17)"
+```
+
+Cross-currency conversion (e.g. USD to GBP via EUR rates):
+
+```ts
+/**
+ * Convert between any two currencies using EUR as the intermediary.
+ * Formula: amount in target = (amount / sourceRate) * targetRate
+ */
+async function convertBetweenCurrencies(
+  amount: number,
+  fromCurrency: string,
+  toCurrency: string,
+  date: string,
+): Promise<{ amount: number; from: string; to: string; date: string }> {
+  const ecb = new EcbClient();
+
+  // Fetch rates for both currencies on the same date
+  const result = await ecb.getRates({
+    currencies: [fromCurrency, toCurrency],
+    startDate: date,
+    endDate: date,
+  });
+
+  const rates = [...result.rates.values()][0]; // Get first (only) date's rates
+  const fromRate = rates[fromCurrency]; // e.g. 1 EUR = 1.03 USD
+  const toRate = rates[toCurrency];     // e.g. 1 EUR = 0.84 GBP
+
+  // Convert: USD -> EUR -> GBP
+  const amountInEur = amount / fromRate;
+  const amountInTarget = Math.round(amountInEur * toRate * 100) / 100;
+
+  return { amount: amountInTarget, from: fromCurrency, to: toCurrency, date };
+}
+
+// Convert 500 USD to GBP
+const cross = await convertBetweenCurrencies(500, "USD", "GBP", "2025-01-15");
+console.log(`500 USD = ${cross.amount} GBP`);
+// "500 USD = 409.90 GBP"
+```
 
 ### getObservations(query)
 
