@@ -55,4 +55,46 @@ describe("validateQuery", () => {
       validateQuery({ currencies: ["GBP"], startDate: "2025-01-01", baseCurrency: "USD" }),
     ).not.toThrow();
   });
+
+  it("rejects invalid endDate format", () => {
+    expect(() =>
+      validateQuery({ currencies: ["USD"], startDate: "2025-01-01", endDate: "01/15/2025" }),
+    ).toThrow(EcbValidationError);
+  });
+
+  it("includes invalid endDate value in error message", () => {
+    expect(() =>
+      validateQuery({ currencies: ["USD"], startDate: "2025-01-01", endDate: "not-valid" }),
+    ).toThrow(/not-valid/);
+  });
+
+  it("accepts endDate equal to startDate", () => {
+    expect(() =>
+      validateQuery({ currencies: ["USD"], startDate: "2025-01-15", endDate: "2025-01-15" }),
+    ).not.toThrow();
+  });
+
+  it("rejects empty string as currency code", () => {
+    expect(() => validateQuery({ currencies: [""], startDate: "2025-01-15" })).toThrow(
+      EcbValidationError,
+    );
+  });
+
+  it("rejects currency code with special characters", () => {
+    expect(() => validateQuery({ currencies: ["U$D"], startDate: "2025-01-15" })).toThrow(
+      EcbValidationError,
+    );
+  });
+
+  it("rejects 4-letter currency code", () => {
+    expect(() => validateQuery({ currencies: ["USDD"], startDate: "2025-01-15" })).toThrow(
+      EcbValidationError,
+    );
+  });
+
+  it("validates all currencies in the array", () => {
+    expect(() =>
+      validateQuery({ currencies: ["USD", "invalid", "GBP"], startDate: "2025-01-15" }),
+    ).toThrow(EcbValidationError);
+  });
 });

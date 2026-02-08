@@ -2,8 +2,11 @@
 
 Fetch exchange rates from the European Central Bank in two lines of code. No API key. No dependencies. Just rates.
 
+[![CI](https://github.com/Ntelikatos/ecb-exchange-rates/actions/workflows/ci.yml/badge.svg)](https://github.com/Ntelikatos/ecb-exchange-rates/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/ecb-exchange-rates-ts)](https://www.npmjs.com/package/ecb-exchange-rates-ts)
 [![npm bundle size](https://img.shields.io/bundlephobia/minzip/ecb-exchange-rates-ts)](https://bundlephobia.com/package/ecb-exchange-rates-ts)
+[![npm downloads](https://img.shields.io/npm/dm/ecb-exchange-rates-ts)](https://www.npmjs.com/package/ecb-exchange-rates-ts)
+[![codecov](https://codecov.io/gh/Ntelikatos/ecb-exchange-rates/branch/main/graph/badge.svg)](https://codecov.io/gh/Ntelikatos/ecb-exchange-rates)
 [![license](https://img.shields.io/npm/l/ecb-exchange-rates-ts)](LICENSE)
 
 ## The problem
