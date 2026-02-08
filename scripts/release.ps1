@@ -75,5 +75,5 @@ if ($LASTEXITCODE -ne 0) { exit 1 }
 
 Write-Host ""
 Write-Host "Done! Release $newVersion created." -ForegroundColor Green
-Write-Host "The publish workflow will automatically push to npm."
-Write-Host "Track it at: https://github.com/Ntelikatos/ecb-exchange-rates/actions"
+Write-Host "The publish workflow will automatically push to npm and GitHub Packages."
+Write-Host "Track it at: https://github.com/Ntelikatos/ecb-exchange-rates-ts/actions"

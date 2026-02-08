@@ -61,5 +61,5 @@ gh release create "$NEW_VERSION" \
 
 echo ""
 echo "Done! Release $NEW_VERSION created."
-echo "The publish workflow will automatically push to npm."
-echo "Track it at: https://github.com/Ntelikatos/ecb-exchange-rates/actions"
+echo "The publish workflow will automatically push to npm and GitHub Packages."
+echo "Track it at: https://github.com/Ntelikatos/ecb-exchange-rates-ts/actions"
